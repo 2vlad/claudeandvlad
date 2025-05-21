@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: claude-telegram-bot
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/index.js
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-3-7-sonnet-20240307
+      - key: SERVER_URL
+        fromService:
+          type: web
+          name: claude-telegram-bot
+          property: host
+      - key: IS_HEROKU
+        value: true 
