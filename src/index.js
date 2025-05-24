@@ -25,8 +25,16 @@ app.listen(config.server.port, () => {
   console.log(`File server running on port ${config.server.port}`);
 });
 
-// Initialize Telegram Bot
-const bot = new TelegramBot(config.telegram.token, { polling: config.telegram.polling });
+// Initialize Telegram Bot with additional options to prevent conflicts
+const bot = new TelegramBot(config.telegram.token, { 
+  polling: {
+    interval: 300, // Poll every 300ms
+    params: {
+      timeout: 10 // Long-polling timeout in seconds
+    },
+    autoStart: true // Start polling automatically
+  }
+});
 
 // Store last uploaded file for each chat
 const lastUploadedFiles = {};

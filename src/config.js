@@ -22,7 +22,13 @@ module.exports = {
   // Telegram Bot settings
   telegram: {
     token: process.env.TELEGRAM_BOT_TOKEN,
-    polling: true
+    polling: {
+      interval: 300,
+      params: {
+        timeout: 10
+      },
+      autoStart: true
+    }
   },
   
   // Anthropic API settings
