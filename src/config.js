@@ -22,12 +22,20 @@ module.exports = {
   // Telegram Bot settings
   telegram: {
     token: process.env.TELEGRAM_BOT_TOKEN,
+    // Use webhooks in production, polling in development
+    useWebhook: process.env.NODE_ENV === 'production',
+    // Webhook settings (for production)
+    webhook: {
+      url: `${process.env.SERVER_URL}/bot${process.env.TELEGRAM_BOT_TOKEN}`,
+      port: process.env.PORT || 8080
+    },
+    // Polling settings (for development)
     polling: {
       interval: 300,
       params: {
         timeout: 10
       },
-      autoStart: true
+      autoStart: !process.env.NODE_ENV || process.env.NODE_ENV !== 'production'
     }
   },
   

@@ -12,7 +12,7 @@ const anthropic = new Anthropic({
   apiKey: config.anthropic.apiKey,
 });
 
-// Initialize Express server for file access
+// Initialize Express server for file access and webhook handling
 const app = express();
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
@@ -21,19 +21,39 @@ app.get('/', (req, res) => {
   res.status(200).send('Claude Telegram Bot is running!');
 });
 
-app.listen(config.server.port, () => {
-  console.log(`File server running on port ${config.server.port}`);
-});
+// Initialize Telegram Bot
+let bot;
 
-// Initialize Telegram Bot with additional options to prevent conflicts
-const bot = new TelegramBot(config.telegram.token, { 
-  polling: {
-    interval: 300, // Poll every 300ms
-    params: {
-      timeout: 10 // Long-polling timeout in seconds
-    },
-    autoStart: true // Start polling automatically
-  }
+// Check if we should use webhook or polling
+if (config.telegram.useWebhook) {
+  // Production mode: use webhook
+  console.log('Starting bot in webhook mode');
+  bot = new TelegramBot(config.telegram.token, { polling: false });
+  
+  // Set webhook path
+  bot.setWebHook(config.telegram.webhook.url);
+  
+  // Handle webhook requests
+  app.post(`/bot${config.telegram.token}`, (req, res) => {
+    bot.processUpdate(req.body);
+    res.sendStatus(200);
+  });
+  
+  // Parse JSON for webhook requests
+  app.use(express.json());
+} else {
+  // Development mode: use polling
+  console.log('Starting bot in polling mode');
+  bot = new TelegramBot(config.telegram.token, { 
+    polling: config.telegram.polling
+  });
+}
+
+// Start the server
+const port = process.env.PORT || config.server.port;
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+  console.log('Bot is running...');
 });
 
 // Store last uploaded file for each chat
