@@ -64,8 +64,44 @@ function getFileUrl(fileName) {
   return `${config.server.url}/uploads/${fileName}`;
 }
 
+/**
+ * Read the content of a file
+ * @param {string} filePath - Path to the file
+ * @returns {Promise<string>} - File content as string
+ */
+async function readFileContent(filePath) {
+  try {
+    // Check file size first to avoid reading very large files
+    const stats = await fs.stat(filePath);
+    const fileSizeInMB = stats.size / (1024 * 1024);
+    
+    // Limit file size to 10MB to prevent memory issues
+    if (fileSizeInMB > 10) {
+      throw new Error(`File is too large (${fileSizeInMB.toFixed(2)}MB). Maximum size is 10MB.`);
+    }
+    
+    // Get file extension
+    const fileExt = path.extname(filePath).toLowerCase();
+    
+    // Text files that can be read directly
+    const textExtensions = [".txt", ".md", ".json", ".csv", ".js", ".py", ".html", ".css", ".xml", ".log"];
+    
+    if (textExtensions.includes(fileExt)) {
+      // Read as text
+      return await fs.readFile(filePath, "utf8");
+    } else {
+      // For binary or other files, just return info about the file
+      return `This is a binary or non-text file (${fileExt}). File size: ${fileSizeInMB.toFixed(2)}MB.`;
+    }
+  } catch (error) {
+    console.error("Error reading file:", error);
+    throw error;
+  }
+}
+
 module.exports = {
   downloadTelegramFile,
   getFileUrl,
-  uploadsDir
+  uploadsDir,
+  readFileContent
 }; 

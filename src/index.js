@@ -22,12 +22,28 @@ app.listen(config.server.port, () => {
 // Initialize Telegram Bot
 const bot = new TelegramBot(config.telegram.token, { polling: config.telegram.polling });
 
+// Store last uploaded file for each chat
+const lastUploadedFiles = {};
+
 // Helper function to create keyboard markup
 const getCommandKeyboard = () => {
   return {
     reply_markup: {
       keyboard: [
         ['/clear', '/history', '/help']
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: false
+    }
+  };
+};
+
+// Helper function to create analyze keyboard markup
+const getAnalyzeKeyboard = () => {
+  return {
+    reply_markup: {
+      keyboard: [
+        ['/analyze', '/clear', '/help']
       ],
       resize_keyboard: true,
       one_time_keyboard: false
@@ -68,11 +84,69 @@ bot.onText(/\/help/, (msg) => {
     '/start - Start the bot\n' +
     '/clear - Clear conversation history\n' +
     '/history - View recent conversation\n' +
+    '/analyze - Analyze the last uploaded file\n' +
     '/help - Show this help message\n\n' +
     'Simply send a message to chat with Claude AI.\n' +
     'You can also send images and files that I can see and process.',
     getCommandKeyboard()
   );
+});
+
+// Analyze last uploaded file
+bot.onText(/\/analyze/, async (msg) => {
+  const chatId = msg.chat.id;
+  
+  // Check if there's a file to analyze
+  if (!lastUploadedFiles[chatId]) {
+    bot.sendMessage(chatId, 'No file to analyze. Please upload a file first.', getCommandKeyboard());
+    return;
+  }
+  
+  try {
+    bot.sendChatAction(chatId, 'typing');
+    
+    const fileData = lastUploadedFiles[chatId];
+    
+    // Read file content
+    const fileContent = await fileHandler.readFileContent(fileData.filePath);
+    
+    // Create a prompt for Claude
+    const analyzePrompt = `Please analyze the following file content:\n\n${fileContent}\n\nProvide a summary and any insights about this content.`;
+    
+    // Add message to conversation
+    conversationManager.addMessage(chatId, 'user', analyzePrompt);
+    
+    // Get formatted messages for Anthropic API
+    const formattedMessages = conversationManager.getFormattedMessages(chatId);
+    
+    // Extract system message
+    const systemMessage = formattedMessages.find(msg => msg.role === 'system');
+    const conversationMessages = formattedMessages.filter(msg => msg.role !== 'system');
+    
+    // Send message to user that analysis is in progress
+    bot.sendMessage(chatId, `Analyzing file: ${fileData.fileName}...`, getCommandKeyboard());
+    
+    // Call Anthropic API
+    const response = await anthropic.messages.create({
+      system: systemMessage ? systemMessage.content : undefined,
+      messages: conversationMessages,
+      model: config.anthropic.model,
+      max_tokens: config.anthropic.maxTokens,
+      temperature: 0.7,
+    });
+
+    // Extract response text
+    const assistantResponse = response.content[0].text;
+
+    // Add assistant's response to conversation history
+    conversationManager.addMessage(chatId, 'assistant', assistantResponse);
+
+    // Send the response to the user
+    bot.sendMessage(chatId, assistantResponse, getCommandKeyboard());
+  } catch (error) {
+    logError(error, { chatId, context: 'File analysis' });
+    bot.sendMessage(chatId, "Sorry, I couldn't analyze this file. " + getUserErrorMessage(error), getCommandKeyboard());
+  }
 });
 
 // Handle photo uploads
@@ -119,14 +193,27 @@ bot.on('document', async (msg) => {
     const fileData = await fileHandler.downloadTelegramFile(bot, fileId, fileName);
     const fileUrl = fileHandler.getFileUrl(fileData.fileName);
     
+    // Store the file data for later analysis
+    lastUploadedFiles[chatId] = {
+      fileName: fileName,
+      filePath: fileData.filePath,
+      fileUrl: fileUrl,
+      mimeType: document.mime_type
+    };
+    
     // Create a user message with the document information
     const userMessage = `[${caption}] - File uploaded: ${fileUrl} (name: ${fileName}, type: ${document.mime_type})`;
     
     // Add message to conversation
     conversationManager.addMessage(chatId, 'user', userMessage);
     
-    // Send confirmation
-    bot.sendMessage(chatId, `I've received your file: "${fileName}"${msg.caption ? ` with caption: "${msg.caption}"` : ''}.`, getCommandKeyboard());
+    // Send confirmation with analyze option
+    bot.sendMessage(
+      chatId, 
+      `I've received your file: "${fileName}"${msg.caption ? ` with caption: "${msg.caption}"` : ''}. 
+Use /analyze to analyze the content of this file.`, 
+      getAnalyzeKeyboard()
+    );
   } catch (error) {
     logError(error, { chatId, context: 'Document upload' });
     bot.sendMessage(chatId, "Sorry, I couldn't process this file. " + getUserErrorMessage(error), getCommandKeyboard());
