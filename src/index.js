@@ -15,6 +15,12 @@ const anthropic = new Anthropic({
 // Initialize Express server for file access
 const app = express();
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
+// Add a healthcheck endpoint for Railway
+app.get('/', (req, res) => {
+  res.status(200).send('Claude Telegram Bot is running!');
+});
+
 app.listen(config.server.port, () => {
   console.log(`File server running on port ${config.server.port}`);
 });
