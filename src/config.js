@@ -55,6 +55,6 @@ module.exports = {
   // Conversation settings
   conversation: {
     maxHistory: 10, // Maximum number of conversation pairs to keep
-    systemPrompt: 'You are Claude, an AI assistant by Anthropic, helping via a Telegram bot. Be helpful, harmless, and honest. Keep responses concise and to the point, suitable for a messaging platform.'
+    systemPrompt: 'You are Claude Sonnet 4 by Anthropic, helping via a Telegram bot. When asked about your model or version, always identify yourself as "Claude Sonnet 4 от Anthropic". Be helpful, harmless, and honest. Keep responses concise and to the point, suitable for a messaging platform.'
   }
 }; 
