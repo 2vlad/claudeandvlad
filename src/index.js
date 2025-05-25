@@ -6,11 +6,15 @@ const conversationManager = require('./conversationManager');
 const fileHandler = require('./fileHandler');
 const express = require('express');
 const path = require('path');
+const { createLoggedAnthropicClient } = require('./anthropicLogger');
 
-// Initialize Anthropic client
-const anthropic = new Anthropic({
+// Initialize Anthropic client with logging
+let anthropic = new Anthropic({
   apiKey: config.anthropic.apiKey,
 });
+
+// Wrap the Anthropic client with logging
+anthropic = createLoggedAnthropicClient(anthropic);
 
 // Initialize Express server for file access and webhook handling
 const app = express();
@@ -276,8 +280,13 @@ bot.on('message', async (msg) => {
     const systemMessage = formattedMessages.find(msg => msg.role === 'system');
     const conversationMessages = formattedMessages.filter(msg => msg.role !== 'system');
     
-    // Log the request for debugging
-    console.log('Sending request to Anthropic API with model:', config.anthropic.model);
+    // Enhanced logging for API requests
+    console.log('===== ANTHROPIC API REQUEST =====');
+    console.log('Timestamp:', new Date().toISOString());
+    console.log('Model:', config.anthropic.model);
+    console.log('Max tokens:', config.anthropic.maxTokens);
+    console.log('User input:', userInput.substring(0, 100) + (userInput.length > 100 ? '...' : ''));
+    console.log('================================');
 
     // Call Anthropic API
     const response = await anthropic.messages.create({
